@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { Session, SessionMessage, extractTextContent } from './utils.js';
+import { AnalysisSession, SessionMessage, extractTextContent } from './utils.js';
 
 export interface CorrectionPattern {
   type: 'correction' | 'rollback' | 'retry' | 'failed_command' | 'repeated_ask';
@@ -169,7 +169,7 @@ function isLikelyFalsePositive(content: string, context: string): boolean {
   return false;
 }
 
-export function analyzeSession(session: Session): CorrectionPattern[] {
+export function analyzeSession(session: AnalysisSession): CorrectionPattern[] {
   const patterns: CorrectionPattern[] = [];
   const messages = session.messages;
   
@@ -323,7 +323,7 @@ export function aggregatePatterns(allPatterns: CorrectionPattern[]): CorrectionP
     });
 }
 
-export function analyzeSessions(sessions: Session[]): AnalysisResult {
+export function analyzeSessions(sessions: AnalysisSession[]): AnalysisResult {
   let totalMessages = 0;
   const allPatterns: CorrectionPattern[] = [];
   
