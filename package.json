@@ -1,7 +1,7 @@
 {
   "name": "claude-learner",
-  "version": "1.1.0",
-  "description": "🧠 Every mistake becomes a rule. Analyze Claude Code sessions and auto-generate CLAUDE.md improvements.",
+  "version": "2.0.0-alpha.1",
+  "description": "🧠 Your AI that trains itself. MCP-native self-improving agent for Claude Code.",
   "main": "dist/index.js",
   "bin": {
     "claude-learner": "./dist/index.js"
@@ -11,12 +11,16 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
+    "daemon": "tsx src/daemon/server.ts",
+    "mcp": "tsx src/mcp/server.ts",
     "prepublishOnly": "npm run build",
     "test": "echo \"No tests yet\" && exit 0"
   },
   "keywords": [
     "claude",
     "claude-code",
+    "mcp",
+    "model-context-protocol",
     "ai",
     "llm",
     "learning",
@@ -24,7 +28,9 @@
     "productivity",
     "automation",
     "developer-tools",
-    "claude-md"
+    "claude-md",
+    "self-improving",
+    "agent"
   ],
   "author": {
     "name": "Alex Zaytsev",
@@ -41,7 +47,7 @@
   },
   "homepage": "https://github.com/unisone/claude-learner#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "files": [
     "dist",
@@ -49,14 +55,19 @@
     "LICENSE"
   ],
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@parcel/watcher": "^2.5.0",
+    "better-sqlite3": "^11.7.0",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "glob": "^10.3.10",
     "openai": "^4.77.0",
-    "ora": "^8.0.1"
+    "ora": "^8.0.1",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
