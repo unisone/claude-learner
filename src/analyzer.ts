@@ -8,6 +8,10 @@ export interface CorrectionPattern {
   sessionPath: string;
   frequency: number;
   confidence: 'high' | 'medium' | 'low';
+  // Context-aware fields (v1.1)
+  projectName?: string;
+  fileContext?: string[];  // Files mentioned in correction
+  scope?: 'global' | 'project' | 'file';
 }
 
 export interface AnalysisResult {
@@ -75,6 +79,52 @@ const FAILURE_PATTERNS = [
   /Compilation failed/i,
   /Test failed/i,
 ];
+
+// Extract file references from content
+function extractFileReferences(content: string): string[] {
+  const files: Set<string> = new Set();
+  
+  // Match common file patterns
+  const patterns = [
+    /[`"']([a-zA-Z0-9_\-./]+\.(ts|tsx|js|jsx|py|md|json|yaml|yml|css|html|go|rs|rb|java|c|cpp|h))[`"']/g,
+    /\b(src\/[a-zA-Z0-9_\-./]+)/g,
+    /\b(components\/[a-zA-Z0-9_\-./]+)/g,
+    /\b(pages\/[a-zA-Z0-9_\-./]+)/g,
+    /\b(lib\/[a-zA-Z0-9_\-./]+)/g,
+    /\b(app\/[a-zA-Z0-9_\-./]+)/g,
+  ];
+  
+  for (const pattern of patterns) {
+    const matches = content.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1] && match[1].length < 100) {
+        files.add(match[1]);
+      }
+    }
+  }
+  
+  return Array.from(files).slice(0, 5); // Max 5 files
+}
+
+// Extract project name from session path
+function extractProjectName(sessionPath: string): string {
+  // Path format: ~/.claude/projects/<project-hash>/sessions/<session>.jsonl
+  // or: ~/.claude/projects/<project-hash>/<session>.jsonl
+  const parts = sessionPath.split('/');
+  const projectsIdx = parts.indexOf('projects');
+  if (projectsIdx !== -1 && parts[projectsIdx + 1]) {
+    // Return the project folder name (usually a hash or project name)
+    return parts[projectsIdx + 1];
+  }
+  return 'unknown';
+}
+
+// Determine scope based on file references
+function determineScope(fileRefs: string[]): 'global' | 'project' | 'file' {
+  if (fileRefs.length === 0) return 'global';
+  if (fileRefs.length === 1) return 'file';
+  return 'project';
+}
 
 // Check if message looks like a coding/development context
 function isDevContext(content: string): boolean {
@@ -149,6 +199,11 @@ export function analyzeSession(session: Session): CorrectionPattern[] {
       // Must have assistant context to be a correction
       if (!assistantContext) continue;
       
+      // Extract context info
+      const projectName = extractProjectName(session.path);
+      const fileRefs = extractFileReferences(content + ' ' + assistantContext);
+      const scope = determineScope(fileRefs);
+      
       // Check high-confidence patterns
       for (const pattern of HIGH_CONFIDENCE_CORRECTIONS) {
         if (pattern.test(content)) {
@@ -158,7 +213,10 @@ export function analyzeSession(session: Session): CorrectionPattern[] {
             assistantContext,
             sessionPath: session.path,
             frequency: 1,
-            confidence: 'high'
+            confidence: 'high',
+            projectName,
+            fileContext: fileRefs,
+            scope
           });
           break;
         }
@@ -174,7 +232,10 @@ export function analyzeSession(session: Session): CorrectionPattern[] {
               assistantContext,
               sessionPath: session.path,
               frequency: 1,
-              confidence: 'medium'
+              confidence: 'medium',
+              projectName,
+              fileContext: fileRefs,
+              scope
             });
             break;
           }
@@ -186,13 +247,18 @@ export function analyzeSession(session: Session): CorrectionPattern[] {
     if (msg.result?.error) {
       const error = msg.result.error;
       if (error.length > 20) { // Skip trivial errors
+        const projName = extractProjectName(session.path);
+        const errFileRefs = extractFileReferences(error);
         patterns.push({
           type: 'failed_command',
           userMessage: error.slice(0, 400),
           assistantContext: '',
           sessionPath: session.path,
           frequency: 1,
-          confidence: 'high'
+          confidence: 'high',
+          projectName: projName,
+          fileContext: errFileRefs,
+          scope: determineScope(errFileRefs)
         });
       }
     }
@@ -205,13 +271,18 @@ export function analyzeSession(session: Session): CorrectionPattern[] {
           // Extract relevant error info
           const match = content.match(/(?:error|Error|ERROR)[:\s]+([^\n"]{10,200})/);
           if (match) {
+            const projName = extractProjectName(session.path);
+            const errFileRefs = extractFileReferences(match[1]);
             patterns.push({
               type: 'failed_command',
               userMessage: match[1].slice(0, 300),
               assistantContext: '',
               sessionPath: session.path,
               frequency: 1,
-              confidence: 'high'
+              confidence: 'high',
+              projectName: projName,
+              fileContext: errFileRefs,
+              scope: determineScope(errFileRefs)
             });
           }
           break;
@@ -316,7 +387,13 @@ export function formatAnalysisResult(result: AnalysisResult): string {
       lines.push(chalk.red('  High Confidence:'));
       for (const p of highConf) {
         const icon = p.type === 'correction' ? '🔄' : '❌';
-        lines.push(`    ${icon} ${chalk.white(p.userMessage.slice(0, 70))}...`);
+        const scopeTag = p.scope === 'file' ? chalk.blue('[file]') : 
+                         p.scope === 'project' ? chalk.magenta('[project]') : 
+                         chalk.dim('[global]');
+        lines.push(`    ${icon} ${scopeTag} ${chalk.white(p.userMessage.slice(0, 60))}...`);
+        if (p.fileContext && p.fileContext.length > 0) {
+          lines.push(chalk.dim(`       📁 ${p.fileContext.slice(0, 2).join(', ')}`));
+        }
         if (p.frequency > 1) {
           lines.push(chalk.dim(`       (${p.frequency}x)`));
         }
@@ -328,7 +405,13 @@ export function formatAnalysisResult(result: AnalysisResult): string {
       lines.push(chalk.yellow('  Medium Confidence:'));
       for (const p of medConf) {
         const icon = p.type === 'correction' ? '🔄' : '⚠️';
-        lines.push(`    ${icon} ${chalk.white(p.userMessage.slice(0, 70))}...`);
+        const scopeTag = p.scope === 'file' ? chalk.blue('[file]') : 
+                         p.scope === 'project' ? chalk.magenta('[project]') : 
+                         chalk.dim('[global]');
+        lines.push(`    ${icon} ${scopeTag} ${chalk.white(p.userMessage.slice(0, 60))}...`);
+        if (p.fileContext && p.fileContext.length > 0) {
+          lines.push(chalk.dim(`       📁 ${p.fileContext.slice(0, 2).join(', ')}`));
+        }
       }
       lines.push('');
     }
