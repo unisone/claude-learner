@@ -1,6 +1,6 @@
 {
   "name": "claude-learner",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0",
   "description": "🧠 Your AI that trains itself. MCP-native self-improving agent for Claude Code.",
   "main": "dist/index.js",
   "bin": {
