@@ -10,11 +10,20 @@ export type RuleState = 'proposed' | 'active' | 'rejected' | 'pruned';
 
 // Pattern types detected by analyzer
 export type PatternType =
-  | 'explicit_correction'
-  | 'undo_revert'
-  | 'repeated_ask'
+  | 'correction'
+  | 'rollback'
+  | 'retry'
   | 'failed_command'
-  | 'style_correction';
+  | 'repeated_ask';
+
+// ID generators
+export function createPatternId(): string {
+  return `pat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+export function createRuleId(): string {
+  return `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
 
 /**
  * Rule - A learned behavior guideline
@@ -53,7 +62,9 @@ export interface Pattern {
   sessionId: string;
   type: PatternType;
   content: string; // The actual correction/pattern text
-  context: string; // JSON-encoded context (project, file, line)
+  context: string; // Previous assistant message or context
+  projectPath?: string;
+  filePath?: string;
   detectedAt: number; // Unix timestamp (ms)
 }
 

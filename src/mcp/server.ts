@@ -23,6 +23,7 @@ import {
   GetPendingRulesInputSchema,
   ApproveRuleInputSchema,
   RejectRuleInputSchema,
+  RecordComplianceInputSchema,
   // Handlers
   handleGetRules,
   handleCheckRule,
@@ -30,6 +31,7 @@ import {
   handleGetPendingRules,
   handleApproveRule,
   handleRejectRule,
+  handleRecordCompliance,
 } from './tools.js';
 
 // ============================================================================
@@ -139,6 +141,24 @@ const TOOLS = [
       required: ['ruleId'],
     },
   },
+  {
+    name: 'record_compliance',
+    description: 'Record whether a rule was followed. Call this to help track rule effectiveness.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        ruleId: {
+          type: 'string',
+          description: 'ID of the rule',
+        },
+        followed: {
+          type: 'boolean',
+          description: 'Whether the rule was followed',
+        },
+      },
+      required: ['ruleId', 'followed'],
+    },
+  },
 ];
 
 // ============================================================================
@@ -220,6 +240,14 @@ class ClaudeLearnerServer {
           case 'reject_rule': {
             const parsed = RejectRuleInputSchema.parse(args);
             const result = handleRejectRule(parsed);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            };
+          }
+
+          case 'record_compliance': {
+            const parsed = RecordComplianceInputSchema.parse(args);
+            const result = handleRecordCompliance(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
