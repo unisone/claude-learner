@@ -131,7 +131,9 @@ claude-learner export -o ./my-learnings
 
 3. **Filters Noise** — Distinguishes real corrections from casual chat
 
-4. **Generates Rules** — Uses AI to create actionable CLAUDE.md entries
+4. **Context-Aware Scoping** — Tags patterns as `[global]`, `[project]`, or `[file]` based on context
+
+5. **Generates Rules** — Uses AI to create actionable CLAUDE.md entries
 
 ## Example Output
 
