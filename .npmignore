@@ -1,0 +1,35 @@
+# Source files (dist is published)
+src/
+tsconfig.json
+.env
+.env.example
+
+# Development
+.github/
+.git/
+node_modules/
+*.log
+*.tsbuildinfo
+
+# Documentation (README is included via package.json files)
+docs/
+CONTRIBUTING.md
+CHANGELOG.md
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
+coverage/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Misc
+*.md
+!README.md
+!LICENSE
