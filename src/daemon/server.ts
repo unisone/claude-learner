@@ -6,7 +6,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
-import { SessionWatcher, PROJECTS_DIR } from './watcher.js';
+import { SessionWatcher, PROJECTS_DIR, WatcherEvent } from './watcher.js';
+import { sessionAnalyzer } from './analyzer.js';
 
 // Constants
 const PID_FILE = '/tmp/claude-learner.pid';
@@ -244,16 +245,32 @@ export async function runDaemonProcess(): Promise<void> {
     process.exit(1);
   });
 
-  // Event handlers
-  watcher.on('session.created', (event) => {
+  // Event handlers - analyze sessions on changes
+  watcher.on('session.created', async (event: WatcherEvent) => {
     console.log(`[${new Date().toISOString()}] New: ${event.sessionId}`);
+    const patterns = await sessionAnalyzer.analyzeSession(
+      event.sessionPath, 
+      event.sessionId, 
+      event.projectPath
+    );
+    if (patterns.length > 0) {
+      console.log(`[${new Date().toISOString()}] Found ${patterns.length} patterns`);
+    }
   });
 
-  watcher.on('session.updated', (event) => {
+  watcher.on('session.updated', async (event: WatcherEvent) => {
     console.log(`[${new Date().toISOString()}] Updated: ${event.sessionId}`);
+    const patterns = await sessionAnalyzer.analyzeSession(
+      event.sessionPath, 
+      event.sessionId, 
+      event.projectPath
+    );
+    if (patterns.length > 0) {
+      console.log(`[${new Date().toISOString()}] Found ${patterns.length} patterns`);
+    }
   });
 
-  watcher.on('error', (err) => {
+  watcher.on('error', (err: Error) => {
     console.error(`[${new Date().toISOString()}] Error:`, err);
   });
 

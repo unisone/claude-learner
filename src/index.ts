@@ -26,8 +26,83 @@ ${chalk.dim('─'.repeat(50))}
 
 program
   .name('claude-learner')
-  .description('Analyze Claude Code sessions and generate CLAUDE.md improvements')
+  .description('🧠 Your AI that trains itself. MCP-native self-improving agent for Claude Code.')
   .version('2.0.0-alpha.1');
+
+// ============================================
+// INIT - Quick setup
+// ============================================
+
+program
+  .command('init')
+  .description('Set up claude-learner and register with Claude Code')
+  .option('--skip-mcp', 'Skip MCP registration')
+  .action(async (options) => {
+    console.log(banner);
+    console.log(chalk.bold.cyan('🚀 Setting up claude-learner...\n'));
+    
+    const spinner = ora('Initializing database...').start();
+    
+    try {
+      // 1. Initialize database
+      const { getDB, closeDB } = await import('./storage/db.js');
+      const db = getDB();
+      const stats = db.getStats();
+      closeDB();
+      
+      spinner.succeed(`Database ready (${stats.rules.total} rules, ${stats.patterns.total} patterns)`);
+      
+      // 2. Check if Claude Code is installed
+      if (!options.skipMcp) {
+        spinner.start('Checking Claude Code...');
+        
+        const { execSync } = await import('child_process');
+        try {
+          execSync('claude --version', { stdio: 'pipe' });
+          spinner.succeed('Claude Code detected');
+          
+          // 3. Register MCP server
+          spinner.start('Registering MCP server...');
+          try {
+            // Find our script path
+            const scriptPath = process.argv[1];
+            const mcpCommand = `node ${scriptPath} mcp-serve`;
+            
+            execSync(`claude mcp add claude-learner -- ${mcpCommand}`, { stdio: 'pipe' });
+            spinner.succeed('MCP server registered with Claude Code');
+          } catch {
+            spinner.warn('Could not register MCP server (may already be registered)');
+          }
+        } catch {
+          spinner.warn('Claude Code not found (install with: npm install -g @anthropic-ai/claude-code)');
+        }
+      }
+      
+      // 4. Start daemon
+      spinner.start('Starting daemon...');
+      const { startDaemon } = await import('./daemon/server.js');
+      await startDaemon(false);
+      spinner.succeed('Daemon started');
+      
+      // Done!
+      console.log(chalk.bold.green('\n✅ Setup complete!\n'));
+      console.log(`${chalk.cyan('What happens now:')}`);
+      console.log(`  • Daemon watches your Claude Code sessions`);
+      console.log(`  • Patterns are detected automatically`);
+      console.log(`  • Rules are proposed for your approval`);
+      console.log(`  • Claude follows approved rules\n`);
+      console.log(`${chalk.cyan('Commands:')}`);
+      console.log(`  ${chalk.dim('claude-learner rules --pending')}   View proposed rules`);
+      console.log(`  ${chalk.dim('claude-learner approve <id>')}      Approve a rule`);
+      console.log(`  ${chalk.dim('claude-learner daemon-status')}     Check daemon status`);
+      console.log(`  ${chalk.dim('claude-learner stop')}              Stop the daemon\n`);
+      
+    } catch (error) {
+      spinner.fail('Setup failed');
+      console.error(chalk.red(`\nError: ${error instanceof Error ? error.message : error}`));
+      process.exit(1);
+    }
+  });
 
 program
   .command('analyze')
@@ -277,6 +352,42 @@ program
   });
 
 program
+  .command('watch')
+  .description('Watch live activity from the daemon (tail logs)')
+  .option('-n, --lines <number>', 'Number of lines to show', '50')
+  .action(async (options) => {
+    console.log(banner);
+    console.log(chalk.bold.cyan('👁️  Live Activity (Ctrl+C to stop)\n'));
+    console.log(chalk.dim('─'.repeat(50)));
+    
+    const { LOG_FILE, getDaemonStatus } = await import('./daemon/server.js');
+    const { spawn } = await import('child_process');
+    const fs = await import('fs');
+    
+    const status = getDaemonStatus();
+    if (!status.running) {
+      console.log(chalk.yellow('\n⚠️  Daemon not running. Start with: claude-learner start\n'));
+      process.exit(1);
+    }
+    
+    // Check if log file exists
+    if (!fs.existsSync(LOG_FILE)) {
+      console.log(chalk.dim('\nNo log file yet. Waiting for activity...\n'));
+    }
+    
+    // Tail the log file
+    const tail = spawn('tail', ['-f', '-n', options.lines, LOG_FILE], {
+      stdio: ['ignore', 'inherit', 'inherit'],
+    });
+    
+    process.on('SIGINT', () => {
+      tail.kill();
+      console.log(chalk.dim('\n\nStopped watching.'));
+      process.exit(0);
+    });
+  });
+
+program
   .command('daemon-status')
   .alias('status')
   .description('Show daemon and MCP server status')
@@ -307,6 +418,17 @@ program
       }
       console.log(`${chalk.dim('  └─')} PID file: ${PID_FILE}`);
       console.log(`${chalk.dim('  └─')} Log file: ${LOG_FILE}`);
+      
+      // Show rule stats
+      const { getDB } = await import('./storage/db.js');
+      const db = getDB();
+      const stats = db.getStats();
+      
+      console.log('');
+      console.log(`${chalk.bold('📊 Stats')}`);
+      console.log(`${chalk.dim('  └─')} Rules: ${stats.rules.active || 0} active, ${stats.rules.proposed || 0} pending`);
+      console.log(`${chalk.dim('  └─')} Patterns: ${stats.patterns.total} detected`);
+      console.log(`${chalk.dim('  └─')} Sessions: ${stats.sessions.total} tracked`);
     } else {
       console.log(`${chalk.red('●')} Daemon: ${chalk.red('Not running')}`);
       console.log(chalk.dim('\nRun `claude-learner start` to begin learning'));

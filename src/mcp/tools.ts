@@ -2,40 +2,13 @@
  * MCP Tool Definitions for claude-learner v2
  * 
  * Tools exposed to Claude Code via MCP protocol
+ * Uses SQLite storage for real data persistence
  */
 
 import { z } from 'zod';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export type RuleScope = 'global' | 'project' | 'file';
-export type RuleState = 'proposed' | 'active' | 'rejected' | 'pruned';
-
-export interface Rule {
-  id: string;
-  text: string;
-  scope: RuleScope;
-  scopeTarget?: string;
-  state: RuleState;
-  createdAt: number;
-  lastSeenAt: number;
-  sourcePatterns: string[];
-  opportunities: number;
-  followed: number;
-  violated: number;
-  complianceRate: number;
-}
-
-export interface Pattern {
-  id: string;
-  sessionId: string;
-  type: string;
-  content: string;
-  context: string;
-  detectedAt: number;
-}
+import { getDB } from '../storage/db.js';
+import { getComplianceRate, createPatternId, createRuleId } from '../storage/types.js';
+import type { Rule, Pattern } from '../storage/types.js';
 
 // ============================================================================
 // Input Schemas (Zod)
@@ -48,8 +21,8 @@ export const GetRulesInputSchema = z.object({
 });
 
 export const CheckRuleInputSchema = z.object({
-  action: z.string().describe('The action about to be taken (e.g., "Using any type")'),
-  context: z.string().describe('File/project context'),
+  action: z.string().describe('The action about to be taken (e.g., "delete file with rm")'),
+  context: z.string().optional().describe('File/project context'),
 });
 
 export const LogCorrectionInputSchema = z.object({
@@ -69,243 +42,260 @@ export const RejectRuleInputSchema = z.object({
   ruleId: z.string().describe('ID of the rule to reject'),
 });
 
-// ============================================================================
-// Mock Data Store (replace with SQLite later)
-// ============================================================================
-
-class MockStore {
-  private rules: Map<string, Rule> = new Map();
-  private patterns: Map<string, Pattern> = new Map();
-  private patternCounter = 0;
-
-  constructor() {
-    // Seed with some example rules
-    this.addRule({
-      id: 'rule-001',
-      text: 'Avoid using "any" type in TypeScript - use "unknown" or define proper types',
-      scope: 'global',
-      state: 'active',
-      createdAt: Date.now() - 86400000 * 7,
-      lastSeenAt: Date.now() - 3600000,
-      sourcePatterns: ['pattern-001', 'pattern-002'],
-      opportunities: 25,
-      followed: 22,
-      violated: 3,
-      complianceRate: 0.88,
-    });
-
-    this.addRule({
-      id: 'rule-002',
-      text: 'Run tests before committing code changes',
-      scope: 'global',
-      state: 'active',
-      createdAt: Date.now() - 86400000 * 5,
-      lastSeenAt: Date.now() - 7200000,
-      sourcePatterns: ['pattern-003'],
-      opportunities: 15,
-      followed: 14,
-      violated: 1,
-      complianceRate: 0.93,
-    });
-
-    this.addRule({
-      id: 'rule-003',
-      text: 'Use 2-space indentation for TypeScript/JavaScript files',
-      scope: 'project',
-      scopeTarget: '/Users/dev/my-project',
-      state: 'proposed',
-      createdAt: Date.now() - 3600000,
-      lastSeenAt: Date.now() - 3600000,
-      sourcePatterns: ['pattern-004'],
-      opportunities: 0,
-      followed: 0,
-      violated: 0,
-      complianceRate: 0,
-    });
-
-    this.addRule({
-      id: 'rule-004',
-      text: 'Prefer const over let when variable is not reassigned',
-      scope: 'global',
-      state: 'proposed',
-      createdAt: Date.now() - 1800000,
-      lastSeenAt: Date.now() - 1800000,
-      sourcePatterns: ['pattern-005'],
-      opportunities: 0,
-      followed: 0,
-      violated: 0,
-      complianceRate: 0,
-    });
-  }
-
-  private addRule(rule: Rule): void {
-    this.rules.set(rule.id, rule);
-  }
-
-  getRules(filters: { project?: string; file?: string; scope?: RuleScope }): Rule[] {
-    const results: Rule[] = [];
-    
-    for (const rule of this.rules.values()) {
-      // Only return active rules by default
-      if (rule.state !== 'active') continue;
-      
-      // Filter by scope
-      if (filters.scope && rule.scope !== filters.scope) continue;
-      
-      // Filter by project
-      if (filters.project && rule.scope === 'project') {
-        if (rule.scopeTarget && !filters.project.includes(rule.scopeTarget)) continue;
-      }
-      
-      // Filter by file
-      if (filters.file && rule.scope === 'file') {
-        if (rule.scopeTarget && !filters.file.match(rule.scopeTarget)) continue;
-      }
-      
-      results.push(rule);
-    }
-    
-    return results;
-  }
-
-  checkRule(action: string, context: string): { allowed: boolean; rule?: Rule; suggestion?: string } {
-    const actionLower = action.toLowerCase();
-    
-    for (const rule of this.rules.values()) {
-      if (rule.state !== 'active') continue;
-      
-      // Simple pattern matching (would be more sophisticated in production)
-      if (actionLower.includes('any') && rule.text.toLowerCase().includes('any')) {
-        return {
-          allowed: false,
-          rule,
-          suggestion: 'Use "unknown" type or define a specific interface/type',
-        };
-      }
-      
-      if (actionLower.includes('let') && rule.text.toLowerCase().includes('const over let')) {
-        return {
-          allowed: false,
-          rule,
-          suggestion: 'Use const if the variable will not be reassigned',
-        };
-      }
-    }
-    
-    return { allowed: true };
-  }
-
-  logCorrection(input: {
-    userMessage: string;
-    assistantContext: string;
-    project: string;
-    file?: string;
-  }): { patternId: string; proposedRule?: Rule } {
-    // Create a pattern
-    const patternId = `pattern-${++this.patternCounter}`;
-    const pattern: Pattern = {
-      id: patternId,
-      sessionId: `session-${Date.now()}`,
-      type: 'correction',
-      content: input.userMessage,
-      context: input.assistantContext,
-      detectedAt: Date.now(),
-    };
-    this.patterns.set(patternId, pattern);
-    
-    // Check if we should propose a rule based on the correction
-    const userMsgLower = input.userMessage.toLowerCase();
-    let proposedRule: Rule | undefined;
-    
-    // Simple heuristics for rule proposal
-    if (userMsgLower.includes('no') || userMsgLower.includes('wrong') || userMsgLower.includes("don't")) {
-      const ruleId = `rule-${Date.now()}`;
-      proposedRule = {
-        id: ruleId,
-        text: `User correction: ${input.userMessage.slice(0, 100)}`,
-        scope: input.file ? 'file' : 'project',
-        scopeTarget: input.file || input.project,
-        state: 'proposed',
-        createdAt: Date.now(),
-        lastSeenAt: Date.now(),
-        sourcePatterns: [patternId],
-        opportunities: 0,
-        followed: 0,
-        violated: 0,
-        complianceRate: 0,
-      };
-      this.rules.set(ruleId, proposedRule);
-    }
-    
-    return { patternId, proposedRule };
-  }
-
-  getPendingRules(): Rule[] {
-    const results: Rule[] = [];
-    for (const rule of this.rules.values()) {
-      if (rule.state === 'proposed') {
-        results.push(rule);
-      }
-    }
-    return results;
-  }
-
-  approveRule(ruleId: string): boolean {
-    const rule = this.rules.get(ruleId);
-    if (!rule) return false;
-    if (rule.state !== 'proposed') return false;
-    
-    rule.state = 'active';
-    rule.lastSeenAt = Date.now();
-    return true;
-  }
-
-  rejectRule(ruleId: string): boolean {
-    const rule = this.rules.get(ruleId);
-    if (!rule) return false;
-    if (rule.state !== 'proposed') return false;
-    
-    rule.state = 'rejected';
-    rule.lastSeenAt = Date.now();
-    return true;
-  }
-}
-
-// Singleton store instance
-export const store = new MockStore();
+export const RecordComplianceInputSchema = z.object({
+  ruleId: z.string().describe('ID of the rule'),
+  followed: z.boolean().describe('Whether the rule was followed'),
+});
 
 // ============================================================================
 // Tool Handlers
 // ============================================================================
 
-export function handleGetRules(input: z.infer<typeof GetRulesInputSchema>) {
-  const rules = store.getRules({
-    project: input.project,
-    file: input.file,
-    scope: input.scope,
-  });
-  return { rules };
+/**
+ * Get active rules for current context
+ */
+export async function handleGetRules(
+  input: z.infer<typeof GetRulesInputSchema>
+): Promise<{ rules: Array<Rule & { complianceRate: number }> }> {
+  const db = getDB();
+  
+  let rules: Rule[];
+  
+  if (input.project || input.file) {
+    rules = db.getActiveRulesForContext(input.project, input.file);
+  } else if (input.scope) {
+    rules = db.getRules({ state: 'active', scope: input.scope });
+  } else {
+    rules = db.getRules({ state: 'active' });
+  }
+  
+  return {
+    rules: rules.map(r => ({
+      ...r,
+      complianceRate: getComplianceRate(r),
+    })),
+  };
 }
 
-export function handleCheckRule(input: z.infer<typeof CheckRuleInputSchema>) {
-  return store.checkRule(input.action, input.context);
+/**
+ * Check if an action would violate any active rule
+ */
+export async function handleCheckRule(
+  input: z.infer<typeof CheckRuleInputSchema>
+): Promise<{ allowed: boolean; violatedRule?: Rule; suggestion?: string }> {
+  const db = getDB();
+  const rules = db.getRules({ state: 'active' });
+  
+  const actionLower = input.action.toLowerCase();
+  
+  for (const rule of rules) {
+    // Check for negation patterns
+    const isProhibition = /\b(don'?t|avoid|never|no|stop)\b/i.test(rule.text);
+    
+    if (isProhibition) {
+      // Extract what's prohibited
+      const prohibitedMatch = rule.text.match(/(?:don'?t|avoid|never|no|stop)\s+(.+)/i);
+      if (prohibitedMatch) {
+        const prohibited = prohibitedMatch[1].toLowerCase().trim();
+        
+        if (actionLower.includes(prohibited) || prohibited.includes(actionLower)) {
+          return {
+            allowed: false,
+            violatedRule: rule,
+            suggestion: `This action may violate a rule: "${rule.text}". Consider an alternative approach.`,
+          };
+        }
+      }
+    }
+    
+    // Check for "use X instead of Y" patterns
+    const insteadMatch = rule.text.match(/use\s+(\w+)\s+instead\s+of\s+(\w+)/i);
+    if (insteadMatch) {
+      const avoid = insteadMatch[2].toLowerCase();
+      const prefer = insteadMatch[1].toLowerCase();
+      
+      if (actionLower.includes(avoid) && !actionLower.includes(prefer)) {
+        return {
+          allowed: false,
+          violatedRule: rule,
+          suggestion: `Consider using ${prefer} instead. Rule: "${rule.text}"`,
+        };
+      }
+    }
+  }
+  
+  return { allowed: true };
 }
 
-export function handleLogCorrection(input: z.infer<typeof LogCorrectionInputSchema>) {
-  return store.logCorrection(input);
+/**
+ * Log a user correction to propose a new rule
+ */
+export async function handleLogCorrection(
+  input: z.infer<typeof LogCorrectionInputSchema>
+): Promise<{ patternId: string; proposedRule?: { id: string; text: string } }> {
+  const db = getDB();
+  
+  // Create pattern
+  const pattern: Pattern = {
+    id: createPatternId(),
+    sessionId: 'mcp-session', // MCP doesn't have session context
+    type: 'correction',
+    content: input.userMessage,
+    context: input.assistantContext,
+    projectPath: input.project,
+    filePath: input.file,
+    detectedAt: Date.now(),
+  };
+  
+  db.createPattern(pattern);
+  
+  // Check if we should propose a rule
+  // Look for similar corrections
+  const recentPatterns = db.getPatterns({ type: 'correction' })
+    .filter(p => p.projectPath === input.project)
+    .slice(0, 10);
+  
+  // Simple rule extraction from correction
+  let ruleText: string | null = null;
+  
+  // Try to extract actionable instruction
+  const msg = input.userMessage;
+  
+  // "don't X" → "Don't X"
+  const dontMatch = msg.match(/don'?t\s+(.+?)(?:\.|,|!|$)/i);
+  if (dontMatch) {
+    ruleText = `Don't ${dontMatch[1]}`;
+  }
+  
+  // "use X instead" → "Use X"
+  const useMatch = msg.match(/use\s+(.+?)\s+instead/i);
+  if (useMatch) {
+    ruleText = `Use ${useMatch[1]}`;
+  }
+  
+  // "always X" → "Always X"
+  const alwaysMatch = msg.match(/always\s+(.+?)(?:\.|,|!|$)/i);
+  if (alwaysMatch) {
+    ruleText = `Always ${alwaysMatch[1]}`;
+  }
+  
+  // "never X" → "Never X"
+  const neverMatch = msg.match(/never\s+(.+?)(?:\.|,|!|$)/i);
+  if (neverMatch) {
+    ruleText = `Never ${neverMatch[1]}`;
+  }
+  
+  if (ruleText) {
+    // Check if similar rule exists
+    const existing = db.getRules({ states: ['active', 'proposed'] as any })
+      .find(r => r.text.toLowerCase().includes(ruleText!.toLowerCase().slice(0, 20)));
+    
+    if (!existing) {
+      const rule: Rule = {
+        id: createRuleId(),
+        text: ruleText,
+        scope: input.file ? 'file' : 'project',
+        scopeTarget: input.file || input.project,
+        state: 'proposed',
+        createdAt: Date.now(),
+        lastSeenAt: Date.now(),
+        sourcePatterns: [pattern.id],
+        opportunities: 0,
+        followed: 0,
+        violated: 0,
+      };
+      
+      db.createRule(rule);
+      
+      return {
+        patternId: pattern.id,
+        proposedRule: { id: rule.id, text: rule.text },
+      };
+    }
+  }
+  
+  return { patternId: pattern.id };
 }
 
-export function handleGetPendingRules(_input: z.infer<typeof GetPendingRulesInputSchema>) {
-  const rules = store.getPendingRules();
-  return { rules };
+/**
+ * Get rules awaiting approval
+ */
+export async function handleGetPendingRules(
+  _input: z.infer<typeof GetPendingRulesInputSchema>
+): Promise<{ rules: Array<Rule & { complianceRate: number }> }> {
+  const db = getDB();
+  const rules = db.getProposedRules();
+  
+  return {
+    rules: rules.map(r => ({
+      ...r,
+      complianceRate: getComplianceRate(r),
+    })),
+  };
 }
 
-export function handleApproveRule(input: z.infer<typeof ApproveRuleInputSchema>) {
-  const success = store.approveRule(input.ruleId);
-  return { success };
+/**
+ * Approve a proposed rule (make it active)
+ */
+export async function handleApproveRule(
+  input: z.infer<typeof ApproveRuleInputSchema>
+): Promise<{ success: boolean; rule?: Rule; error?: string }> {
+  const db = getDB();
+  const rule = db.approveRule(input.ruleId);
+  
+  if (!rule) {
+    return {
+      success: false,
+      error: `Rule ${input.ruleId} not found or not in proposed state`,
+    };
+  }
+  
+  return { success: true, rule };
 }
 
-export function handleRejectRule(input: z.infer<typeof RejectRuleInputSchema>) {
-  const success = store.rejectRule(input.ruleId);
-  return { success };
+/**
+ * Reject a proposed rule
+ */
+export async function handleRejectRule(
+  input: z.infer<typeof RejectRuleInputSchema>
+): Promise<{ success: boolean; error?: string }> {
+  const db = getDB();
+  const rule = db.rejectRule(input.ruleId);
+  
+  if (!rule) {
+    return {
+      success: false,
+      error: `Rule ${input.ruleId} not found or not in proposed state`,
+    };
+  }
+  
+  return { success: true };
+}
+
+/**
+ * Record whether a rule was followed (for effectiveness tracking)
+ */
+export async function handleRecordCompliance(
+  input: z.infer<typeof RecordComplianceInputSchema>
+): Promise<{ success: boolean; rule?: Rule & { complianceRate: number } }> {
+  const db = getDB();
+  
+  let rule: Rule | null;
+  if (input.followed) {
+    rule = db.recordRuleFollowed(input.ruleId);
+  } else {
+    rule = db.recordRuleViolated(input.ruleId);
+  }
+  
+  if (!rule) {
+    return { success: false };
+  }
+  
+  return {
+    success: true,
+    rule: {
+      ...rule,
+      complianceRate: getComplianceRate(rule),
+    },
+  };
 }

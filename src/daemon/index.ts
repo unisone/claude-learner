@@ -15,3 +15,5 @@ export {
   LOG_FILE 
 } from './server.js';
 export type { DaemonStatus } from './server.js';
+
+export { SessionAnalyzer, sessionAnalyzer } from './analyzer.js';
