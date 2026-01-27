@@ -7,7 +7,6 @@ import { findSessions } from './utils.js';
 import { analyzeSessions, formatAnalysisResult } from './analyzer.js';
 import { generateImprovements, formatImprovementResult } from './improver.js';
 import { exportLearnings, formatExportResult } from './exporter.js';
-
 const program = new Command();
 
 const banner = `
@@ -28,7 +27,7 @@ ${chalk.dim('─'.repeat(50))}
 program
   .name('claude-learner')
   .description('Analyze Claude Code sessions and generate CLAUDE.md improvements')
-  .version('1.1.0');
+  .version('2.0.0-alpha.1');
 
 program
   .command('analyze')
@@ -255,6 +254,191 @@ program
     }
   });
 
+// ============================================
+// V2 COMMANDS - MCP-Native Self-Improving Agent
+// ============================================
+
+program
+  .command('start')
+  .description('Start the learning daemon and MCP server')
+  .option('-f, --foreground', 'Run in foreground (don\'t daemonize)')
+  .action(async (options) => {
+    console.log(banner);
+    const { startDaemon } = await import('./daemon/server.js');
+    await startDaemon(options.foreground);
+  });
+
+program
+  .command('stop')
+  .description('Stop the learning daemon')
+  .action(async () => {
+    const { stopDaemon } = await import('./daemon/server.js');
+    await stopDaemon();
+  });
+
+program
+  .command('daemon-status')
+  .alias('status')
+  .description('Show daemon and MCP server status')
+  .action(async () => {
+    console.log(banner);
+    const { getDaemonStatus, LOG_FILE, PID_FILE } = await import('./daemon/server.js');
+    const status = getDaemonStatus();
+    
+    console.log(chalk.bold.cyan('\n🔧 Daemon Status\n'));
+    console.log(chalk.dim('─'.repeat(50)));
+    
+    if (status.running) {
+      console.log(`${chalk.green('●')} Daemon: ${chalk.green('Running')} (PID: ${status.pid})`);
+      console.log(`${chalk.dim('  └─')} Watch path: ${status.watchPath || '~/.claude/projects/'}`);
+      if (status.uptime) {
+        const uptimeSec = Math.floor(status.uptime / 1000);
+        const uptimeMin = Math.floor(uptimeSec / 60);
+        const uptimeHr = Math.floor(uptimeMin / 60);
+        const uptimeStr = uptimeHr > 0 
+          ? `${uptimeHr}h ${uptimeMin % 60}m` 
+          : uptimeMin > 0 
+            ? `${uptimeMin}m ${uptimeSec % 60}s`
+            : `${uptimeSec}s`;
+        console.log(`${chalk.dim('  └─')} Uptime: ${uptimeStr}`);
+      }
+      if (status.startedAt) {
+        console.log(`${chalk.dim('  └─')} Started: ${status.startedAt.toLocaleString()}`);
+      }
+      console.log(`${chalk.dim('  └─')} PID file: ${PID_FILE}`);
+      console.log(`${chalk.dim('  └─')} Log file: ${LOG_FILE}`);
+    } else {
+      console.log(`${chalk.red('●')} Daemon: ${chalk.red('Not running')}`);
+      console.log(chalk.dim('\nRun `claude-learner start` to begin learning'));
+    }
+    console.log('');
+  });
+
+program
+  .command('rules')
+  .description('List and manage rules')
+  .option('-a, --all', 'Show all rules including rejected/pruned')
+  .option('--pending', 'Show only pending rules')
+  .option('--effectiveness', 'Show effectiveness report')
+  .action(async (options) => {
+    console.log(banner);
+    const { getDB } = await import('./storage/db.js');
+    const { getComplianceRate } = await import('./storage/types.js');
+    
+    const db = getDB();
+    
+    if (options.effectiveness) {
+      const rules = db.getRules({ state: 'active' });
+      
+      console.log(chalk.bold.cyan('\n📊 Rule Effectiveness Report\n'));
+      console.log(chalk.dim('─'.repeat(50)));
+      
+      const high = rules.filter(r => getComplianceRate(r) >= 0.8);
+      const medium = rules.filter(r => getComplianceRate(r) >= 0.5 && getComplianceRate(r) < 0.8);
+      const low = rules.filter(r => getComplianceRate(r) < 0.5);
+      
+      if (high.length > 0) {
+        console.log(chalk.green('\n✅ HIGH (>80% compliance):'));
+        for (const r of high) {
+          console.log(`   • "${r.text.slice(0, 50)}..." — ${Math.round(getComplianceRate(r) * 100)}%`);
+        }
+      }
+      
+      if (medium.length > 0) {
+        console.log(chalk.yellow('\n⚠️  MEDIUM (50-80% compliance):'));
+        for (const r of medium) {
+          console.log(`   • "${r.text.slice(0, 50)}..." — ${Math.round(getComplianceRate(r) * 100)}%`);
+        }
+      }
+      
+      if (low.length > 0) {
+        console.log(chalk.red('\n❌ LOW (<50% compliance):'));
+        for (const r of low) {
+          console.log(`   • "${r.text.slice(0, 50)}..." — ${Math.round(getComplianceRate(r) * 100)}%`);
+        }
+      }
+      
+      if (rules.length === 0) {
+        console.log(chalk.dim('\nNo active rules yet. Run `claude-learner start` to begin learning.'));
+      }
+    } else if (options.pending) {
+      const pending = db.getProposedRules();
+      
+      console.log(chalk.bold.cyan('\n📬 Pending Rules\n'));
+      console.log(chalk.dim('─'.repeat(50)));
+      
+      if (pending.length === 0) {
+        console.log(chalk.dim('\nNo pending rules. Keep using Claude Code!'));
+      } else {
+        for (let i = 0; i < pending.length; i++) {
+          const r = pending[i];
+          console.log(`\n${i + 1}. "${chalk.white(r.text)}"`);
+          console.log(chalk.dim(`   Scope: ${r.scope}${r.scopeTarget ? ` (${r.scopeTarget})` : ''}`));
+          console.log(chalk.dim(`   ID: ${r.id}`));
+        }
+        console.log(chalk.cyan('\n💡 Use `claude-learner approve <id>` or `claude-learner reject <id>`'));
+      }
+    } else {
+      const states = options.all ? undefined : ['active', 'proposed'];
+      const rules = states 
+        ? db.getRules({ states: states as any })
+        : db.getRules();
+      
+      console.log(chalk.bold.cyan('\n📋 Rules\n'));
+      console.log(chalk.dim('─'.repeat(50)));
+      
+      if (rules.length === 0) {
+        console.log(chalk.dim('\nNo rules yet. Run `claude-learner start` to begin learning.'));
+      } else {
+        for (const r of rules) {
+          const stateIcon = r.state === 'active' ? chalk.green('●') :
+                           r.state === 'proposed' ? chalk.yellow('○') :
+                           r.state === 'pruned' ? chalk.red('✗') : chalk.dim('○');
+          console.log(`${stateIcon} [${r.scope}] ${r.text.slice(0, 60)}${r.text.length > 60 ? '...' : ''}`);
+        }
+      }
+    }
+    console.log('');
+  });
+
+program
+  .command('approve <id>')
+  .description('Approve a pending rule')
+  .action(async (id) => {
+    const { getDB } = await import('./storage/db.js');
+    const db = getDB();
+    
+    const rule = db.approveRule(id);
+    if (rule) {
+      console.log(chalk.green(`✅ Rule approved: "${rule.text}"`));
+    } else {
+      console.log(chalk.red(`❌ Rule not found or not pending: ${id}`));
+    }
+  });
+
+program
+  .command('reject <id>')
+  .description('Reject a pending rule')
+  .action(async (id) => {
+    const { getDB } = await import('./storage/db.js');
+    const db = getDB();
+    
+    const rule = db.rejectRule(id);
+    if (rule) {
+      console.log(chalk.yellow(`🚫 Rule rejected: "${rule.text}"`));
+    } else {
+      console.log(chalk.red(`❌ Rule not found or not pending: ${id}`));
+    }
+  });
+
+program
+  .command('mcp-serve')
+  .description('Start MCP server (for Claude Code integration)')
+  .action(async () => {
+    const { startMcpServer } = await import('./mcp/server.js');
+    await startMcpServer();
+  });
+
 program
   .command('support')
   .description('Show ways to support this project')
@@ -280,6 +464,15 @@ ${chalk.bold('⭐ Star the repo')}
 
 ${chalk.dim('Every bit helps keep the project maintained and improving!')}
 `);
+  });
+
+// Internal command for daemon subprocess
+program
+  .command('daemon-run', { hidden: true })
+  .description('Internal: Run daemon process')
+  .action(async () => {
+    const { runDaemonProcess } = await import('./daemon/server.js');
+    await runDaemonProcess();
   });
 
 program.parse();
