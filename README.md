@@ -32,8 +32,10 @@ You use Claude Code daily. Sometimes it makes mistakes. You correct it. Tomorrow
 Claude Learner analyzes your session history, finds patterns where you corrected Claude, and generates actionable rules for your CLAUDE.md.
 
 ```bash
+npx claude-learner stats     # See your usage statistics
 npx claude-learner analyze   # Find correction patterns
 npx claude-learner improve   # Generate CLAUDE.md rules
+npx claude-learner export    # Save to .learnings/ directory
 ```
 
 ## Installation
@@ -54,6 +56,24 @@ npm install -g claude-learner
 
 ## Usage
 
+### View Statistics
+
+See your Claude Code usage stats:
+
+```bash
+claude-learner stats
+
+# Output:
+# Sessions: 42
+# Total messages: 3,847
+#   └─ User messages: 1,203
+#   └─ Assistant messages: 2,644
+# Date range: 1/15/2026 → 1/27/2026
+# Top projects:
+#   • my-app: 15 sessions
+#   • api-service: 8 sessions
+```
+
 ### Analyze Sessions
 
 Find patterns where you corrected Claude:
@@ -61,6 +81,9 @@ Find patterns where you corrected Claude:
 ```bash
 # Analyze last 10 sessions
 claude-learner analyze
+
+# Analyze more sessions
+claude-learner analyze -n 50
 
 # Analyze all sessions
 claude-learner analyze --all
@@ -209,8 +232,9 @@ node dist/index.js analyze
 
 ## Related Projects
 
-- [Claude Code](https://claude.ai/code) — The AI coding assistant
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — Anthropic's agentic coding tool
 - [ai-prompts](https://github.com/unisone/ai-prompts) — Battle-tested prompts for Claude & GPT
+- [everything-claude-code](https://github.com/unisone/everything-claude-code) — Complete Claude Code config collection
 
 ## License
 
