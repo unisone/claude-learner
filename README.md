@@ -3,6 +3,8 @@
 **Your AI that trains itself.** MCP-native self-improving agent for Claude Code.
 
 [![npm version](https://img.shields.io/npm/v/claude-learner.svg)](https://www.npmjs.com/package/claude-learner)
+[![GitHub release](https://img.shields.io/github/v/release/unisone/claude-learner)](https://github.com/unisone/claude-learner/releases)
+[![CI](https://github.com/unisone/claude-learner/actions/workflows/ci.yml/badge.svg)](https://github.com/unisone/claude-learner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 > Every correction becomes a rule. Every rule makes Claude smarter. **Automatically.**
@@ -192,6 +194,15 @@ If this saved you time:
 - ☕ [Buy Me a Coffee](https://buymeacoffee.com/unisone)
 - 💜 [GitHub Sponsors](https://github.com/sponsors/unisone)
 - ⭐ [Star the repo](https://github.com/unisone/claude-learner)
+
+---
+
+## Links
+
+- 📋 [Changelog](CHANGELOG.md)
+- 🚀 [Releases](https://github.com/unisone/claude-learner/releases)
+- 🐛 [Issues](https://github.com/unisone/claude-learner/issues)
+- 💡 [Discussions](https://github.com/unisone/claude-learner/discussions)
 
 ---
 
