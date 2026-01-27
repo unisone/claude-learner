@@ -2,7 +2,8 @@
 
 **Your AI that trains itself.** MCP-native self-improving agent for Claude Code.
 
-[![npm version](https://img.shields.io/npm/v/claude-learner.svg)](https://www.npmjs.com/package/claude-learner)
+[![npm version](https://img.shields.io/npm/v/claude-learner?color=blue)](https://www.npmjs.com/package/claude-learner)
+[![npm downloads](https://img.shields.io/npm/dm/claude-learner)](https://www.npmjs.com/package/claude-learner)
 [![GitHub release](https://img.shields.io/github/v/release/unisone/claude-learner)](https://github.com/unisone/claude-learner/releases)
 [![CI](https://github.com/unisone/claude-learner/actions/workflows/ci.yml/badge.svg)](https://github.com/unisone/claude-learner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
