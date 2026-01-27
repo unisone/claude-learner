@@ -14,7 +14,8 @@
     "daemon": "tsx src/daemon/server.ts",
     "mcp": "tsx src/mcp/server.ts",
     "prepublishOnly": "npm run build",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "echo \"No tests yet\" && exit 0",
+    "prepare": "husky"
   },
   "keywords": [
     "claude",
@@ -66,8 +67,14 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.3.1",
+    "@commitlint/config-conventional": "^20.3.1",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",
+    "husky": "^9.1.7",
+    "semantic-release": "^25.0.2",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
