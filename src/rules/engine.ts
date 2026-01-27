@@ -96,7 +96,7 @@ export class RuleEngine {
     if (!rule || rule.state !== 'proposed') return null;
     
     rule.state = 'active';
-    rule.approvedAt = Date.now();
+    rule.lastSeenAt = Date.now();
     return rule;
   }
   

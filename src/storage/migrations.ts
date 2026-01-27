@@ -80,14 +80,17 @@ const migrations: Migration[] = [
       `);
     },
   },
-  // Future migrations go here
-  // {
-  //   version: 2,
-  //   name: 'add_rule_tags',
-  //   up: (db) => {
-  //     db.exec('ALTER TABLE rules ADD COLUMN tags TEXT DEFAULT "[]"');
-  //   },
-  // },
+  {
+    version: 2,
+    name: 'add_pattern_paths',
+    up: (db) => {
+      db.exec(`
+        ALTER TABLE patterns ADD COLUMN project_path TEXT;
+        ALTER TABLE patterns ADD COLUMN file_path TEXT;
+        CREATE INDEX IF NOT EXISTS idx_patterns_project ON patterns(project_path);
+      `);
+    },
+  },
 ];
 
 /**
