@@ -14,6 +14,14 @@
 
 ## ⚡ 30-Second Setup
 
+### Option A: Claude Code Plugin (Recommended)
+
+```bash
+/plugin install claude-learner@unisone/claude-learner
+```
+
+### Option B: npm Global Install
+
 ```bash
 npm install -g claude-learner
 claude-learner init
