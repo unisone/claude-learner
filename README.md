@@ -5,155 +5,195 @@
 [![npm version](https://img.shields.io/npm/v/claude-learner.svg)](https://www.npmjs.com/package/claude-learner)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-> Every mistake becomes a rule. Every correction becomes a lesson. **Automatically.**
+> Every correction becomes a rule. Every rule makes Claude smarter. **Automatically.**
 
-## Before/After
+---
 
-```
-❌ Without claude-learner:
-   Claude keeps making the same mistakes
-   You correct the same things every session
-   Knowledge dies when the session ends
-
-✅ With claude-learner:
-   Corrections become permanent rules
-   Claude gets smarter every session
-   Your preferences persist forever
-```
-
-## 🚀 Quick Start
+## ⚡ 30-Second Setup
 
 ```bash
-# Install globally
 npm install -g claude-learner
-
-# Start the daemon (watches your sessions, proposes rules)
-claude-learner start
-
-# Add MCP server to Claude Code
-claude mcp add claude-learner -- node $(which claude-learner | xargs dirname)/claude-learner mcp-serve
+claude-learner init
 ```
 
 **That's it.** Claude now learns from every session.
+
+---
+
+## The Problem
+
+You correct Claude. Claude forgets. You correct again.
+
+```
+You: "Don't use rm, use trash"
+Claude: *uses rm again next session*
+You: 🤦
+```
+
+Knowledge dies when the session ends.
+
+## The Solution
+
+**claude-learner** watches your sessions, detects patterns, and creates permanent rules:
+
+```
+[daemon] Detected: User corrected "rm" → "trash" (3 times)
+[daemon] 📋 Proposed rule: "Use trash instead of rm"
+[you]    claude-learner approve rule_xxx
+[claude] *follows rule forever*
+```
+
+---
 
 ## How It Works
 
 ```
 📝 You work with Claude Code
      ↓
-👁️  Daemon watches your sessions in real-time
+👁️  Daemon watches sessions in real-time
      ↓
-🔍 AI detects patterns (corrections, rollbacks, retries)
+🔍 Detects patterns (corrections, retries, rollbacks)
      ↓
 📋 Proposes rules for your approval
      ↓
 ✅ Approved rules become permanent
      ↓
-🎯 Claude follows them in future sessions
+🎯 Claude follows them via MCP
      ↓
 📊 Ineffective rules get auto-pruned
 ```
 
-## ✨ Features
+The daemon runs in the background. You don't need to do anything except approve good rules.
 
-### 🔄 Real-Time Learning
-- Watches `~/.claude/projects/` for session changes
-- Detects corrections, rollbacks, and retries
-- Proposes rules from patterns
-
-### 📋 Smart Rule Management
-```bash
-# List all active rules
-claude-learner rules
-
-# Show pending approvals
-claude-learner rules --pending
-
-# View effectiveness report
-claude-learner rules --effectiveness
-
-# Approve/reject rules
-claude-learner approve <rule-id>
-claude-learner reject <rule-id>
-```
-
-### 🎯 MCP Integration
-When integrated with Claude Code, the AI can:
-- Query active rules at session start
-- Check if actions violate rules
-- Log corrections for pattern detection
-- Request rule approval
-
-### 📊 Effectiveness Tracking
-- Tracks compliance rate for each rule
-- Auto-prunes rules that get ignored
-- Shows which rules actually work
+---
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `start [--foreground]` | Start the learning daemon |
+| Command | What it does |
+|---------|--------------|
+| `init` | One-step setup (starts daemon + registers MCP) |
+| `start` | Start the learning daemon |
 | `stop` | Stop the daemon |
-| `daemon-status` | Show daemon status |
-| `rules [--pending\|--effectiveness]` | List and manage rules |
-| `approve <id>` | Approve a pending rule |
-| `reject <id>` | Reject a pending rule |
-| `mcp-serve` | Start MCP server (stdio) |
-| `analyze` | Analyze sessions for patterns |
-| `improve` | Generate CLAUDE.md improvements |
+| `status` | Show daemon status + stats |
+| `watch` | Live activity feed |
+| `rules` | List all rules |
+| `rules --pending` | Show rules awaiting approval |
+| `rules --effectiveness` | Show compliance rates |
+| `approve <id>` | Approve a proposed rule |
+| `reject <id>` | Reject a proposed rule |
+| `mcp-serve` | Start MCP server (for Claude Code) |
+
+### v1 commands still work:
+| `analyze` | Batch-analyze session history |
+| `improve` | Generate CLAUDE.md suggestions |
 | `export` | Export learnings to files |
-| `stats` | Show usage statistics |
+| `stats` | Usage statistics |
 
-## MCP Tools
+---
 
-When connected via MCP, Claude Code gets these tools:
+## MCP Integration
 
-| Tool | Description |
-|------|-------------|
-| `get_rules` | Get active rules for context |
-| `check_rule` | Check if action violates rules |
-| `log_correction` | Log a user correction |
-| `get_pending_rules` | Get rules awaiting approval |
-| `approve_rule` | Approve a proposed rule |
-| `reject_rule` | Reject a proposed rule |
+When integrated with Claude Code, these tools are available:
 
-## Configuration
+| Tool | Purpose |
+|------|---------|
+| `get_rules` | Load active rules at session start |
+| `check_rule` | Check if action violates a rule |
+| `log_correction` | Log corrections for learning |
+| `record_compliance` | Track rule effectiveness |
+| `get_pending_rules` | View proposed rules |
+| `approve_rule` / `reject_rule` | Manage rules |
 
-Rules are stored in `~/.claude-learner/learner.db` (SQLite).
+Claude Code automatically calls these to learn and improve.
 
-Each rule has:
-- **Scope**: `global`, `project`, or `file`
-- **State**: `proposed` → `active` → `pruned`
-- **Effectiveness**: tracked via opportunities/followed/violated
+---
 
 ## Example Workflow
 
-1. **Correction detected**: You tell Claude "don't use `rm`, use `trash` instead"
-2. **Pattern logged**: System records this correction
-3. **Rule proposed**: "Use `trash` instead of `rm` for file deletion"
-4. **You approve**: `claude-learner approve rule_xxx`
-5. **Rule active**: Next session, Claude follows the rule
-6. **Tracked**: System monitors if Claude follows it
-7. **Auto-prune**: If Claude keeps ignoring it, rule gets pruned
+1. **You correct Claude**: "Don't use `any`, use proper types"
+2. **Daemon detects it**: Logs as correction pattern
+3. **Pattern repeats**: Same correction 2+ times
+4. **Rule proposed**: `"Don't use any type"`
+5. **You approve**: `claude-learner approve rule_xxx`
+6. **Rule active**: Claude checks it before using `any`
+7. **Tracked**: System monitors compliance
+8. **Auto-prune**: If ignored >70%, rule is pruned
 
-## v1 → v2 Migration
+---
 
-v2 is a complete rewrite with:
-- **MCP-native** integration (replaces manual CLAUDE.md)
-- **Real-time** daemon (replaces batch analysis)
-- **SQLite storage** (replaces flat files)
-- **Effectiveness tracking** (replaces static rules)
+## Rule Scopes
 
-v1 commands (`analyze`, `improve`, `export`, `stats`) still work.
+| Scope | Applies to | Example |
+|-------|-----------|---------|
+| `global` | All projects | "Use 2-space indentation" |
+| `project` | Specific project | "This repo uses pnpm" |
+| `file` | File pattern | "*.test.ts files use vitest" |
+
+---
+
+## Storage
+
+```
+~/.claude-learner/
+└── learner.db      # SQLite database (rules, patterns, sessions)
+
+/tmp/
+├── claude-learner.pid    # Daemon PID
+└── claude-learner.log    # Daemon logs
+```
+
+---
+
+## Architecture
+
+```
+┌─────────────────┐     ┌──────────────┐     ┌─────────────┐
+│  Claude Code    │────▶│  MCP Server  │────▶│   SQLite    │
+│  (your work)    │     │  (7 tools)   │     │  (storage)  │
+└─────────────────┘     └──────────────┘     └─────────────┘
+         │                                          ▲
+         ▼                                          │
+┌─────────────────┐     ┌──────────────┐           │
+│ Session Files   │────▶│   Daemon     │───────────┘
+│ ~/.claude/...   │     │  (watcher)   │
+└─────────────────┘     └──────────────┘
+```
+
+---
+
+## Requirements
+
+- Node.js 20+
+- Claude Code (for MCP integration)
+
+---
+
+## FAQ
+
+**Does it send data anywhere?**  
+No. Everything runs locally. Your sessions never leave your machine.
+
+**Can I use it without the daemon?**  
+Yes. Use `analyze`/`improve`/`export` for batch processing.
+
+**How do I uninstall?**  
+```bash
+claude-learner stop
+npm uninstall -g claude-learner
+rm -rf ~/.claude-learner
+```
+
+---
 
 ## Support
 
-If this tool saved you time, consider supporting development:
+If this saved you time:
 
 - ☕ [Buy Me a Coffee](https://buymeacoffee.com/unisone)
 - 💜 [GitHub Sponsors](https://github.com/sponsors/unisone)
 - ⭐ [Star the repo](https://github.com/unisone/claude-learner)
+
+---
 
 ## License
 
@@ -161,4 +201,4 @@ MIT © [Alex Zaytsev](https://github.com/unisone)
 
 ---
 
-**Make Claude Code actually learn.** Install in 30 seconds.
+**Make Claude Code actually learn.** Install in 30 seconds. Never repeat a correction.
