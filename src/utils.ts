@@ -17,7 +17,8 @@ export interface SessionMessage {
   [key: string]: unknown;
 }
 
-export interface Session {
+// V1 session format for batch analysis (different from v2 Session in types.ts)
+export interface AnalysisSession {
   path: string;
   projectPath: string;
   messages: SessionMessage[];
@@ -28,7 +29,7 @@ export function getClaudeSessionsPath(): string {
   return process.env.CLAUDE_SESSIONS_PATH || join(homedir(), '.claude', 'projects');
 }
 
-export async function findSessions(limit?: number): Promise<Session[]> {
+export async function findSessions(limit?: number): Promise<AnalysisSession[]> {
   const basePath = getClaudeSessionsPath();
   
   if (!existsSync(basePath)) {
@@ -53,7 +54,7 @@ export async function findSessions(limit?: number): Promise<Session[]> {
   files = [...new Set(files)];
   
   // Parse and sort by modification time
-  const sessions: Session[] = [];
+  const sessions: AnalysisSession[] = [];
   
   for (const filePath of files) {
     try {
