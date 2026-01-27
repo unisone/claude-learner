@@ -294,8 +294,8 @@ export class LearnerDB {
     const row = patternToRow(pattern);
     this.db
       .prepare(
-        `INSERT INTO patterns (id, session_id, type, content, context, detected_at)
-         VALUES (@id, @session_id, @type, @content, @context, @detected_at)`
+        `INSERT INTO patterns (id, session_id, type, content, context, project_path, file_path, detected_at)
+         VALUES (@id, @session_id, @type, @content, @context, @project_path, @file_path, @detected_at)`
       )
       .run(row);
     return pattern;
