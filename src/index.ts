@@ -28,7 +28,7 @@ ${chalk.dim('─'.repeat(50))}
 program
   .name('claude-learner')
   .description('Analyze Claude Code sessions and generate CLAUDE.md improvements')
-  .version('1.0.0');
+  .version('1.1.0');
 
 program
   .command('analyze')
