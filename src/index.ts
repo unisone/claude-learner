@@ -172,6 +172,90 @@ program
   });
 
 program
+  .command('stats')
+  .description('Show statistics about your Claude Code usage')
+  .option('-n, --sessions <number>', 'Number of recent sessions to analyze', '20')
+  .option('-a, --all', 'Analyze all sessions')
+  .action(async (options) => {
+    console.log(banner);
+    
+    const spinner = ora('Gathering statistics...').start();
+    
+    try {
+      const limit = options.all ? undefined : parseInt(options.sessions);
+      const sessions = await findSessions(limit);
+      
+      if (sessions.length === 0) {
+        spinner.fail('No Claude Code sessions found');
+        process.exit(1);
+      }
+      
+      // Calculate stats
+      let totalMessages = 0;
+      let userMessages = 0;
+      let assistantMessages = 0;
+      let toolCalls = 0;
+      const projectCounts = new Map<string, number>();
+      
+      for (const session of sessions) {
+        totalMessages += session.messages.length;
+        
+        for (const msg of session.messages) {
+          if (msg.message?.role === 'user') userMessages++;
+          if (msg.message?.role === 'assistant') assistantMessages++;
+          if (msg.type === 'tool_use' || msg.type === 'tool_result') toolCalls++;
+        }
+        
+        // Track projects
+        const projectName = session.projectPath.split('/').pop() || 'unknown';
+        projectCounts.set(projectName, (projectCounts.get(projectName) || 0) + 1);
+      }
+      
+      spinner.succeed('Statistics gathered');
+      
+      // Format output
+      console.log(chalk.bold.cyan('\n📈 Claude Code Statistics\n'));
+      console.log(chalk.dim('─'.repeat(50)));
+      console.log('');
+      console.log(`${chalk.bold('Sessions:')} ${sessions.length}`);
+      console.log(`${chalk.bold('Total messages:')} ${totalMessages.toLocaleString()}`);
+      console.log(`${chalk.bold('  └─ User messages:')} ${userMessages.toLocaleString()}`);
+      console.log(`${chalk.bold('  └─ Assistant messages:')} ${assistantMessages.toLocaleString()}`);
+      console.log(`${chalk.bold('  └─ Tool calls:')} ${toolCalls.toLocaleString()}`);
+      console.log('');
+      
+      // Show date range
+      if (sessions.length > 0) {
+        const newest = sessions[0].timestamp;
+        const oldest = sessions[sessions.length - 1].timestamp;
+        console.log(`${chalk.bold('Date range:')} ${oldest.toLocaleDateString()} → ${newest.toLocaleDateString()}`);
+      }
+      
+      // Top projects
+      const topProjects = [...projectCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+      
+      if (topProjects.length > 0) {
+        console.log('');
+        console.log(chalk.bold('Top projects:'));
+        for (const [project, count] of topProjects) {
+          console.log(`  ${chalk.cyan('•')} ${project}: ${count} sessions`);
+        }
+      }
+      
+      console.log('');
+      console.log(chalk.dim('─'.repeat(50)));
+      console.log(chalk.cyan('\n💡 Run `claude-learner analyze` to find improvement opportunities\n'));
+      
+    } catch (error) {
+      spinner.fail('Failed to gather statistics');
+      console.error(chalk.red(`\nError: ${error instanceof Error ? error.message : error}`));
+      process.exit(1);
+    }
+  });
+
+program
   .command('support')
   .description('Show ways to support this project')
   .action(() => {
