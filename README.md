@@ -222,3 +222,9 @@ MIT © [Alex Zaytsev](https://github.com/unisone)
 ---
 
 **Make Claude Code actually learn.** Install in 30 seconds. Never repeat a correction.
+
+## Also By @unisone
+
+- [intel-skill](https://github.com/unisone/intel-skill) — Market intelligence for Claude Code (`npx skills add unisone/intel-skill`)
+- [moltbot-config](https://github.com/unisone/moltbot-config) — Production memory engine, self-review system, and configs for Moltbot
+- [agentpulse](https://github.com/unisone/agentpulse) — Real-time agent monitoring dashboard
