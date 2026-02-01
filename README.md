@@ -12,6 +12,11 @@
 
 ---
 
+## 🤝 Contributing / Security
+
+- Contributing: see [CONTRIBUTING.md](./CONTRIBUTING.md)
+- Security: see [SECURITY.md](./SECURITY.md)
+
 ## ⚡ 30-Second Setup
 
 ### Option A: Claude Code Plugin (Recommended)
