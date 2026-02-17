@@ -27,7 +27,7 @@ ${chalk.dim('─'.repeat(50))}
 program
   .name('claude-learner')
   .description('🧠 Your AI that trains itself. MCP-native self-improving agent for Claude Code.')
-  .version('2.1.0');
+  .version('2.2.0');
 
 // ============================================
 // INIT - Quick setup
@@ -551,6 +551,24 @@ program
     } else {
       console.log(chalk.red(`❌ Rule not found or not pending: ${id}`));
     }
+  });
+
+program
+  .command('sync')
+  .description('Sync active rules into CLAUDE.md with managed comment markers')
+  .option('-g, --global', 'Write global rules to ~/.claude/CLAUDE.md')
+  .option('-p, --project <path>', 'Project path for scoped rules')
+  .option('-t, --target <file>', 'Custom target CLAUDE.md path')
+  .option('--dry-run', 'Show what would be written without modifying files')
+  .action(async (options) => {
+    const { syncRules, formatSyncResult } = await import('./sync.js');
+    const result = syncRules({
+      global: options.global,
+      project: options.project,
+      target: options.target,
+      dryRun: options.dryRun,
+    });
+    console.log(formatSyncResult(result));
   });
 
 program

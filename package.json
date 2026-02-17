@@ -1,6 +1,6 @@
 {
   "name": "claude-learner",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "🧠 Your AI that trains itself. MCP-native self-improving agent for Claude Code.",
   "main": "dist/index.js",
   "bin": {
@@ -14,7 +14,9 @@
     "daemon": "tsx src/daemon/server.ts",
     "mcp": "tsx src/mcp/server.ts",
     "prepublishOnly": "npm run build && chmod +x dist/index.js",
-    "test": "echo \"No tests yet\" && exit 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "prepare": "husky"
   },
   "keywords": [
@@ -62,9 +64,11 @@
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "glob": "^10.3.10",
-    "openai": "^4.77.0",
     "ora": "^8.0.1",
     "zod": "^3.24.0"
+  },
+  "optionalDependencies": {
+    "openai": "^4.77.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.3.1",
@@ -76,6 +80,7 @@
     "husky": "^9.1.7",
     "semantic-release": "^25.0.2",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
   }
 }

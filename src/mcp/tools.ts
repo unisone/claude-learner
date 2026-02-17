@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import { getDB } from '../storage/db.js';
 import { getComplianceRate, createPatternId, createRuleId } from '../storage/types.js';
+import { syncRules } from '../sync.js';
 import type { Rule, Pattern } from '../storage/types.js';
 
 // ============================================================================
@@ -45,6 +46,12 @@ export const RejectRuleInputSchema = z.object({
 export const RecordComplianceInputSchema = z.object({
   ruleId: z.string().describe('ID of the rule'),
   followed: z.boolean().describe('Whether the rule was followed'),
+});
+
+export const SyncToClaudeMdInputSchema = z.object({
+  project: z.string().optional().describe('Project path for scoped rules'),
+  global: z.boolean().optional().describe('Only sync global rules to ~/.claude/CLAUDE.md'),
+  target: z.string().optional().describe('Custom target CLAUDE.md path'),
 });
 
 // ============================================================================
@@ -297,5 +304,25 @@ export async function handleRecordCompliance(
       ...rule,
       complianceRate: getComplianceRate(rule),
     },
+  };
+}
+
+/**
+ * Sync active rules into a CLAUDE.md file
+ */
+export async function handleSyncToClaudeMd(
+  input: z.infer<typeof SyncToClaudeMdInputSchema>
+): Promise<{ success: boolean; path: string; rulesWritten: number; created: boolean }> {
+  const result = syncRules({
+    project: input.project,
+    global: input.global,
+    target: input.target,
+  });
+
+  return {
+    success: true,
+    path: result.path,
+    rulesWritten: result.rulesWritten,
+    created: result.created,
   };
 }

@@ -99,6 +99,8 @@ Knowledge dies when the session ends.
 | `rules --effectiveness` | Show compliance rates |
 | `approve <id>` | Approve a proposed rule |
 | `reject <id>` | Reject a proposed rule |
+| `sync` | Write active rules into CLAUDE.md |
+| `sync --global` | Sync global rules to ~/.claude/CLAUDE.md |
 | `mcp-serve` | Start MCP server (for Claude Code) |
 
 ### v1 commands still work:
@@ -121,6 +123,7 @@ When integrated with Claude Code, these tools are available:
 | `record_compliance` | Track rule effectiveness |
 | `get_pending_rules` | View proposed rules |
 | `approve_rule` / `reject_rule` | Manage rules |
+| `sync_to_claude_md` | Write rules into CLAUDE.md |
 
 Claude Code automatically calls these to learn and improve.
 

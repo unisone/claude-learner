@@ -24,6 +24,7 @@ import {
   ApproveRuleInputSchema,
   RejectRuleInputSchema,
   RecordComplianceInputSchema,
+  SyncToClaudeMdInputSchema,
   // Handlers
   handleGetRules,
   handleCheckRule,
@@ -32,6 +33,7 @@ import {
   handleApproveRule,
   handleRejectRule,
   handleRecordCompliance,
+  handleSyncToClaudeMd,
 } from './tools.js';
 
 // ============================================================================
@@ -159,6 +161,27 @@ const TOOLS = [
       required: ['ruleId', 'followed'],
     },
   },
+  {
+    name: 'sync_to_claude_md',
+    description: 'Sync active rules into a CLAUDE.md file using managed comment markers. Rules are written between <!-- claude-learner:start --> and <!-- claude-learner:end --> markers.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        project: {
+          type: 'string',
+          description: 'Project path for scoped rules',
+        },
+        global: {
+          type: 'boolean',
+          description: 'Only sync global rules to ~/.claude/CLAUDE.md',
+        },
+        target: {
+          type: 'string',
+          description: 'Custom target CLAUDE.md path',
+        },
+      },
+    },
+  },
 ];
 
 // ============================================================================
@@ -172,7 +195,7 @@ class ClaudeLearnerServer {
     this.server = new Server(
       {
         name: 'claude-learner',
-        version: '2.1.0',
+        version: '2.2.0',
       },
       {
         capabilities: {
@@ -248,6 +271,14 @@ class ClaudeLearnerServer {
           case 'record_compliance': {
             const parsed = RecordComplianceInputSchema.parse(args);
             const result = await handleRecordCompliance(parsed);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            };
+          }
+
+          case 'sync_to_claude_md': {
+            const parsed = SyncToClaudeMdInputSchema.parse(args);
+            const result = await handleSyncToClaudeMd(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };

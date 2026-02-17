@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import OpenAI from 'openai';
 import { AnalysisResult, CorrectionPattern } from './analyzer.js';
 
 export interface Improvement {
@@ -54,7 +53,6 @@ export async function generateImprovements(
   apiKey?: string
 ): Promise<ImprovementResult> {
   if (!apiKey) {
-    console.log(chalk.yellow('⚠️  No OpenAI API key - using basic analysis'));
     return generateBasicImprovements(analysis);
   }
 
@@ -71,8 +69,6 @@ export async function generateImprovements(
     };
   }
 
-  const openai = new OpenAI({ apiKey });
-  
   // Prepare patterns with context
   const patternSummary = meaningfulPatterns.map(p => ({
     type: p.type,
@@ -83,12 +79,16 @@ export async function generateImprovements(
   }));
 
   try {
+    // Dynamic import — openai is an optional dependency
+    const { default: OpenAI } = await import('openai');
+    const openai = new OpenAI({ apiKey });
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { 
-          role: 'user', 
+        {
+          role: 'user',
           content: `Analyze these ${patternSummary.length} correction patterns and generate CLAUDE.md rules:\n\n${JSON.stringify(patternSummary, null, 2)}`
         }
       ],
@@ -104,14 +104,14 @@ export async function generateImprovements(
 
     const result = JSON.parse(content) as { improvements: Improvement[] };
     const improvements = result.improvements || [];
-    
+
     // Add source tracking
     improvements.forEach((imp, i) => {
       if (i < meaningfulPatterns.length) {
         imp.source = meaningfulPatterns[i].userMessage.slice(0, 50);
       }
     });
-    
+
     return {
       improvements,
       claudeMdSuggestion: formatClaudeMd(improvements),
@@ -119,50 +119,93 @@ export async function generateImprovements(
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.error(chalk.yellow(`⚠️  AI analysis failed (${errorMsg}), using basic analysis`));
+
+    // Distinguish between "openai not installed" vs API errors
+    if (errorMsg.includes('Cannot find module') || errorMsg.includes('MODULE_NOT_FOUND')) {
+      console.log(chalk.yellow('openai package not installed — using local analysis'));
+    } else {
+      console.error(chalk.yellow(`AI analysis failed (${errorMsg}), using local analysis`));
+    }
     return generateBasicImprovements(analysis);
   }
 }
 
 function generateBasicImprovements(analysis: AnalysisResult): ImprovementResult {
   const improvements: Improvement[] = [];
-  
-  // Only process high-confidence patterns with frequency > 1
+
+  // Process all high-confidence patterns, and medium with frequency > 1
   const significant = analysis.patterns
-    .filter(p => p.confidence === 'high' && p.frequency >= 2)
-    .slice(0, 5);
-  
+    .filter(p => p.confidence === 'high' || (p.confidence === 'medium' && p.frequency > 1))
+    .slice(0, 10);
+
   for (const pattern of significant) {
     const msg = pattern.userMessage.toLowerCase();
-    
-    // Try to extract actionable rules from common patterns
-    if (msg.includes("don't") || msg.includes("do not") || msg.includes("stop")) {
+
+    // "don't X" / "stop X" / "never X" → prohibition rule
+    if (msg.includes("don't") || msg.includes("do not") || msg.includes("stop") || msg.includes("never")) {
       improvements.push({
-        category: 'general',
+        category: categorizeCorrection(pattern),
         rule: extractNegativeRule(pattern.userMessage),
-        reason: `User explicitly said this ${pattern.frequency} times`,
-        priority: 'high',
+        reason: pattern.frequency > 1
+          ? `User explicitly said this ${pattern.frequency} times`
+          : 'User correction (high confidence)',
+        priority: pattern.frequency >= 3 ? 'high' : pattern.frequency >= 2 ? 'high' : 'medium',
         source: pattern.userMessage.slice(0, 50)
       });
-    } else if (msg.includes('always') || msg.includes('make sure') || msg.includes('remember to')) {
+    }
+    // "use X instead of Y" → preference rule
+    else if (/use\s+\S+\s+instead/i.test(msg)) {
+      const match = pattern.userMessage.match(/use\s+(\S+)\s+instead\s+of\s+(\S+)/i);
+      if (match) {
+        improvements.push({
+          category: categorizeCorrection(pattern),
+          rule: `Use ${match[1]} instead of ${match[2]}`,
+          reason: pattern.frequency > 1
+            ? `Repeated preference (${pattern.frequency}x)`
+            : 'User correction (high confidence)',
+          priority: pattern.frequency >= 2 ? 'high' : 'medium',
+          source: pattern.userMessage.slice(0, 50)
+        });
+      }
+    }
+    // "always X" / "make sure" / "remember to" → positive rule
+    else if (msg.includes('always') || msg.includes('make sure') || msg.includes('remember to')) {
       improvements.push({
-        category: 'general',
+        category: categorizeCorrection(pattern),
         rule: extractPositiveRule(pattern.userMessage),
-        reason: `Repeated instruction (${pattern.frequency}x)`,
-        priority: 'medium',
+        reason: pattern.frequency > 1
+          ? `Repeated instruction (${pattern.frequency}x)`
+          : 'User instruction (high confidence)',
+        priority: pattern.frequency >= 2 ? 'high' : 'medium',
         source: pattern.userMessage.slice(0, 50)
       });
-    } else if (pattern.type === 'failed_command') {
+    }
+    // "that's wrong" / "I meant" / rollback → context-dependent rule
+    else if (pattern.type === 'correction' && pattern.confidence === 'high') {
+      improvements.push({
+        category: categorizeCorrection(pattern),
+        rule: extractGeneralRule(pattern),
+        reason: pattern.frequency > 1
+          ? `User corrected this ${pattern.frequency} times`
+          : 'User correction',
+        priority: pattern.frequency >= 2 ? 'high' : 'medium',
+        source: pattern.userMessage.slice(0, 50)
+      });
+    }
+    // Failed commands → tooling rule
+    else if (pattern.type === 'failed_command') {
       improvements.push({
         category: 'tooling',
         rule: `Watch out for: ${pattern.userMessage.slice(0, 100)}`,
-        reason: 'This error occurred multiple times',
+        reason: pattern.frequency > 1
+          ? `This error occurred ${pattern.frequency} times`
+          : 'Recurring error pattern',
         priority: 'medium',
         source: pattern.userMessage.slice(0, 50)
       });
     }
   }
-  
+
   return {
     improvements,
     claudeMdSuggestion: formatClaudeMd(improvements),
@@ -170,8 +213,48 @@ function generateBasicImprovements(analysis: AnalysisResult): ImprovementResult 
   };
 }
 
+// Categorize a correction based on its content
+function categorizeCorrection(pattern: CorrectionPattern): string {
+  const combined = (pattern.userMessage + ' ' + pattern.assistantContext).toLowerCase();
+
+  if (/\b(indent|tab|space|quote|semicolon|bracket|format|lint|prettier|eslint)\b/.test(combined)) {
+    return 'coding-style';
+  }
+  if (/\b(test|spec|jest|vitest|mocha|assert|expect|coverage)\b/.test(combined)) {
+    return 'testing';
+  }
+  if (/\b(commit|push|branch|merge|rebase|git|pr|pull request)\b/.test(combined)) {
+    return 'git';
+  }
+  if (/\b(import|export|module|package|component|architecture|pattern|refactor)\b/.test(combined)) {
+    return 'architecture';
+  }
+  if (/\b(npm|yarn|pnpm|bun|docker|build|deploy|ci|cd|script)\b/.test(combined)) {
+    return 'tooling';
+  }
+  if (pattern.scope === 'file') return 'project-specific';
+
+  return 'general';
+}
+
+// Extract a general rule from a correction pattern
+function extractGeneralRule(pattern: CorrectionPattern): string {
+  const msg = pattern.userMessage;
+
+  // "I meant X" → extract what was meant
+  const meantMatch = msg.match(/I\s+meant\s+(.{10,80}?)(?:\.|!|$)/i);
+  if (meantMatch) return meantMatch[1].trim();
+
+  // "not what I asked" → use the correction as context
+  if (/not\s+what\s+I\s+(asked|wanted|meant)/i.test(msg)) {
+    return msg.slice(0, 100);
+  }
+
+  // Fallback: use the correction text directly
+  return msg.length > 100 ? msg.slice(0, 97) + '...' : msg;
+}
+
 function extractNegativeRule(message: string): string {
-  // Try to extract "Don't X" into a rule
   const match = message.match(/(?:don'?t|do not|stop|never)\s+(.{10,80}?)(?:\.|!|$)/i);
   if (match) {
     return `Do not ${match[1].trim()}`;
@@ -180,7 +263,6 @@ function extractNegativeRule(message: string): string {
 }
 
 function extractPositiveRule(message: string): string {
-  // Try to extract "Always X" into a rule
   const match = message.match(/(?:always|make sure|remember to)\s+(.{10,80}?)(?:\.|!|$)/i);
   if (match) {
     return match[1].trim().charAt(0).toUpperCase() + match[1].trim().slice(1);
@@ -204,7 +286,7 @@ No actionable patterns found yet. Keep using Claude Code and run analysis again 
   }
 
   const sections = new Map<string, Improvement[]>();
-  
+
   for (const imp of improvements) {
     const category = imp.category || 'general';
     if (!sections.has(category)) {
@@ -233,13 +315,13 @@ No actionable patterns found yet. Keep using Claude Code and run analysis again 
     const title = category.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     lines.push(`## ${title}`);
     lines.push('');
-    
+
     // Sort by priority
     const sorted = items.sort((a, b) => {
       const order = { high: 0, medium: 1, low: 2 };
       return order[a.priority] - order[b.priority];
     });
-    
+
     for (const item of sorted) {
       const priority = item.priority === 'high' ? '🔴' : item.priority === 'medium' ? '🟡' : '🟢';
       lines.push(`- ${priority} **${item.rule}**`);
@@ -275,7 +357,7 @@ export function formatImprovementResult(result: ImprovementResult): string {
       medium: result.improvements.filter(i => i.priority === 'medium'),
       low: result.improvements.filter(i => i.priority === 'low')
     };
-    
+
     if (byPriority.high.length > 0) {
       lines.push(chalk.red.bold('🔴 High Priority Rules:\n'));
       for (const imp of byPriority.high) {
@@ -284,7 +366,7 @@ export function formatImprovementResult(result: ImprovementResult): string {
         lines.push('');
       }
     }
-    
+
     if (byPriority.medium.length > 0) {
       lines.push(chalk.yellow.bold('🟡 Medium Priority Rules:\n'));
       for (const imp of byPriority.medium) {
@@ -293,7 +375,7 @@ export function formatImprovementResult(result: ImprovementResult): string {
         lines.push('');
       }
     }
-    
+
     if (byPriority.low.length > 0) {
       lines.push(chalk.green.bold('🟢 Nice to Have:\n'));
       for (const imp of byPriority.low) {
@@ -310,6 +392,6 @@ export function formatImprovementResult(result: ImprovementResult): string {
   lines.push(chalk.gray('```markdown'));
   lines.push(result.claudeMdSuggestion);
   lines.push(chalk.gray('```'));
-  
+
   return lines.join('\n');
 }
