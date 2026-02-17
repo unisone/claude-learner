@@ -321,9 +321,12 @@ function isProcessRunning(pid: number): boolean {
 
 function getProcessStartTime(pid: number): Date | undefined {
   try {
-    // Try to get start time from ps command (works on macOS and Linux)
-    const { execSync } = require('child_process');
-    const output = execSync(`ps -o lstart= -p ${pid} 2>/dev/null`, { encoding: 'utf-8' });
+    // Use execFileSync to avoid shell interpolation (security best practice)
+    const { execFileSync } = require('child_process');
+    const output = execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     if (output.trim()) {
       return new Date(output.trim());
     }

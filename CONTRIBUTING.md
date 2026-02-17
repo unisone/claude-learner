@@ -66,4 +66,4 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Questions?
 
-Feel free to open an issue or reach out on [Twitter](https://twitter.com/alexxzay).
+Feel free to open an [issue](https://github.com/unisone/claude-learner/issues) or start a [discussion](https://github.com/unisone/claude-learner/discussions).

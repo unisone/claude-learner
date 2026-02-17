@@ -1,0 +1,14 @@
+{
+  "hooks": [
+    {
+      "event": "UserPromptSubmit",
+      "command": "node \"$(dirname \"$0\")/detect-correction.js\"",
+      "description": "Detects correction patterns in user prompts and logs them for rule extraction"
+    },
+    {
+      "event": "Stop",
+      "command": "node \"$(dirname \"$0\")/notify-pending.js\"",
+      "description": "Reminds about pending rules when Claude finishes a turn"
+    }
+  ]
+}

@@ -27,7 +27,7 @@ ${chalk.dim('─'.repeat(50))}
 program
   .name('claude-learner')
   .description('🧠 Your AI that trains itself. MCP-native self-improving agent for Claude Code.')
-  .version('2.0.0');
+  .version('2.1.0');
 
 // ============================================
 // INIT - Quick setup
