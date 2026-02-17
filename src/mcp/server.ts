@@ -172,7 +172,7 @@ class ClaudeLearnerServer {
     this.server = new Server(
       {
         name: 'claude-learner',
-        version: '2.0.0',
+        version: '2.1.0',
       },
       {
         capabilities: {
@@ -199,7 +199,7 @@ class ClaudeLearnerServer {
         switch (name) {
           case 'get_rules': {
             const parsed = GetRulesInputSchema.parse(args);
-            const result = handleGetRules(parsed);
+            const result = await handleGetRules(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
@@ -207,7 +207,7 @@ class ClaudeLearnerServer {
 
           case 'check_rule': {
             const parsed = CheckRuleInputSchema.parse(args);
-            const result = handleCheckRule(parsed);
+            const result = await handleCheckRule(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
@@ -215,7 +215,7 @@ class ClaudeLearnerServer {
 
           case 'log_correction': {
             const parsed = LogCorrectionInputSchema.parse(args);
-            const result = handleLogCorrection(parsed);
+            const result = await handleLogCorrection(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
@@ -223,7 +223,7 @@ class ClaudeLearnerServer {
 
           case 'get_pending_rules': {
             const parsed = GetPendingRulesInputSchema.parse(args);
-            const result = handleGetPendingRules(parsed);
+            const result = await handleGetPendingRules(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
@@ -231,7 +231,7 @@ class ClaudeLearnerServer {
 
           case 'approve_rule': {
             const parsed = ApproveRuleInputSchema.parse(args);
-            const result = handleApproveRule(parsed);
+            const result = await handleApproveRule(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
@@ -239,7 +239,7 @@ class ClaudeLearnerServer {
 
           case 'reject_rule': {
             const parsed = RejectRuleInputSchema.parse(args);
-            const result = handleRejectRule(parsed);
+            const result = await handleRejectRule(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
@@ -247,7 +247,7 @@ class ClaudeLearnerServer {
 
           case 'record_compliance': {
             const parsed = RecordComplianceInputSchema.parse(args);
-            const result = handleRecordCompliance(parsed);
+            const result = await handleRecordCompliance(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };

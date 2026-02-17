@@ -66,20 +66,22 @@ Knowledge dies when the session ends.
 ```
 📝 You work with Claude Code
      ↓
-👁️  Daemon watches sessions in real-time
+🪝 Hooks detect corrections in real-time (v2.1)
      ↓
-🔍 Detects patterns (corrections, retries, rollbacks)
+👁️  Daemon watches sessions for deeper patterns
      ↓
-📋 Proposes rules for your approval
+🔍 Patterns extracted (corrections, retries, rollbacks)
+     ↓
+📋 Rules proposed for your approval
      ↓
 ✅ Approved rules become permanent
      ↓
-🎯 Claude follows them via MCP
+🎯 Claude follows them via MCP + hooks
      ↓
 📊 Ineffective rules get auto-pruned
 ```
 
-The daemon runs in the background. You don't need to do anything except approve good rules.
+**v2.1:** Hooks detect corrections instantly as you type — no daemon required for basic learning. The daemon adds deeper pattern analysis across sessions.
 
 ---
 
@@ -231,5 +233,5 @@ MIT © [Alex Zaytsev](https://github.com/unisone)
 ## Also By @unisone
 
 - [intel-skill](https://github.com/unisone/intel-skill) — Market intelligence for Claude Code (`npx skills add unisone/intel-skill`)
-- [moltbot-config](https://github.com/unisone/moltbot-config) — Production memory engine, self-review system, and configs for Moltbot
+- [openclaw-config](https://github.com/unisone/openclaw-config) — Production configs, memory engine, and workspace templates for OpenClaw
 - [agentpulse](https://github.com/unisone/agentpulse) — Real-time agent monitoring dashboard

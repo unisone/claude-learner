@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-02-16
+
+### Added
+- **Native Hooks** — Real-time correction detection via Claude Code hooks system
+  - `UserPromptSubmit` hook detects corrections as you type ("don't do X", "use Y instead")
+  - `Stop` hook reminds about pending rules awaiting approval
+  - No daemon required — hooks run automatically via the plugin
+- **Security Scanning CI** — Automated secret/PII detection on every push and PR
+  - Scans for API keys (OpenAI, Slack, GitHub, AWS, Anthropic)
+  - Blocks private filesystem paths and internal IPs
+  - Runs before build step — fails fast
+
+### Fixed
+- **CRITICAL: MCP tools now return actual data** — All 7 tool handlers were missing `await`, causing every MCP call to return `{}` instead of rule data (fixes #2)
+- **Command injection risk** — `execSync` in daemon process manager replaced with `execFileSync` to prevent shell interpolation
+- **RegExp safety** — Rule engine now catches invalid regex in scope targets instead of crashing
+- **Private path leak** — Removed `/Users/danbot/` paths from generated asset HTML files
+
+### Changed
+- CI matrix simplified to Node.js 20.x and 22.x (dropped 18.x, which is EOL)
+- CI now includes `npm audit` step for dependency vulnerability checking
+- Updated cross-references: `moltbot-config` → `openclaw-config`
+- Plugin manifest includes `hooks` directory
+
+### Security
+- Added CI scanning for 7+ secret types, private paths, and internal IPs
+- Fixed potential ReDoS in rule scope matching
+- Replaced shell interpolation with safe argument passing
+
 ## [2.0.0] - 2026-01-27
 
 ### Added
@@ -55,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pattern detection: corrections, rollbacks, retries, failed commands
 - Support for Buy Me a Coffee, GitHub Sponsors, Ko-fi
 
+[2.1.0]: https://github.com/unisone/claude-learner/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/unisone/claude-learner/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/unisone/claude-learner/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/unisone/claude-learner/releases/tag/v1.0.0

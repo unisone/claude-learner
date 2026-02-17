@@ -57,8 +57,13 @@ export class RuleEngine {
         
         // File rules apply if file matches
         if (r.scope === 'file' && context?.file) {
-          return context.file.includes(r.scopeTarget || '') ||
-                 (r.scopeTarget && new RegExp(r.scopeTarget).test(context.file));
+          try {
+            return context.file.includes(r.scopeTarget || '') ||
+                   (r.scopeTarget && new RegExp(r.scopeTarget).test(context.file));
+          } catch {
+            // Invalid regex in scopeTarget — fall back to includes
+            return context.file.includes(r.scopeTarget || '');
+          }
         }
         
         return false;
