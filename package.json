@@ -35,11 +35,7 @@
     "self-improving",
     "agent"
   ],
-  "author": {
-    "name": "Alex Zaytsev",
-    "email": "32521398+unisone@users.noreply.github.com",
-    "url": "https://github.com/unisone"
-  },
+  "author": "unisone (https://github.com/unisone)",
   "license": "MIT",
   "repository": {
     "type": "git",
