@@ -25,6 +25,7 @@ import {
   RejectRuleInputSchema,
   RecordComplianceInputSchema,
   SyncToClaudeMdInputSchema,
+  PruneRulesInputSchema,
   // Handlers
   handleGetRules,
   handleCheckRule,
@@ -34,6 +35,7 @@ import {
   handleRejectRule,
   handleRecordCompliance,
   handleSyncToClaudeMd,
+  handlePruneRules,
 } from './tools.js';
 
 // ============================================================================
@@ -182,6 +184,32 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: 'prune_rules',
+    description: 'Find and prune low-value rules (low compliance after enough observations). Dry-run by default; pass dryRun: false to actually prune.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        dryRun: {
+          type: 'boolean',
+          description: 'Preview candidates without changing anything (default true)',
+        },
+        ruleIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Explicit rule IDs to prune; if omitted, low-compliance candidates are selected',
+        },
+        minOpportunities: {
+          type: 'number',
+          description: 'Minimum observations before a rule qualifies (default 10)',
+        },
+        maxComplianceRate: {
+          type: 'number',
+          description: 'Compliance rate below which a rule qualifies (default 0.3)',
+        },
+      },
+    },
+  },
 ];
 
 // ============================================================================
@@ -279,6 +307,14 @@ class ClaudeLearnerServer {
           case 'sync_to_claude_md': {
             const parsed = SyncToClaudeMdInputSchema.parse(args);
             const result = await handleSyncToClaudeMd(parsed);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            };
+          }
+
+          case 'prune_rules': {
+            const parsed = PruneRulesInputSchema.parse(args);
+            const result = await handlePruneRules(parsed);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };

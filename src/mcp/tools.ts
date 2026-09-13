@@ -54,6 +54,13 @@ export const SyncToClaudeMdInputSchema = z.object({
   target: z.string().optional().describe('Custom target CLAUDE.md path'),
 });
 
+export const PruneRulesInputSchema = z.object({
+  dryRun: z.boolean().optional().describe('Preview pruning candidates without changing anything (default: true)'),
+  ruleIds: z.array(z.string()).optional().describe('Explicit rule IDs to prune; if omitted, low-compliance candidates are selected automatically'),
+  minOpportunities: z.number().optional().describe('Minimum observations before a rule qualifies as a candidate (default: 10)'),
+  maxComplianceRate: z.number().optional().describe('Compliance rate below which a rule qualifies (default: 0.3)'),
+});
+
 // ============================================================================
 // Tool Handlers
 // ============================================================================
@@ -325,4 +332,47 @@ export async function handleSyncToClaudeMd(
     rulesWritten: result.rulesWritten,
     created: result.created,
   };
+}
+
+/**
+ * Prune low-value rules. Dry-run by default — pass dryRun: false to apply.
+ */
+export async function handlePruneRules(
+  input: z.infer<typeof PruneRulesInputSchema>
+): Promise<{
+  dryRun: boolean;
+  candidates: Array<{ id: string; text: string; complianceRate: number; opportunities: number }>;
+  pruned: string[];
+}> {
+  const db = getDB();
+  const dryRun = input.dryRun ?? true;
+
+  let targets: Rule[];
+  if (input.ruleIds && input.ruleIds.length > 0) {
+    targets = input.ruleIds
+      .map((id) => db.getRule(id))
+      .filter((r): r is Rule => r !== null && r.state === 'active');
+  } else {
+    targets = db.getRulesForPruning(
+      input.minOpportunities ?? 10,
+      input.maxComplianceRate ?? 0.3
+    );
+  }
+
+  const candidates = targets.map((r) => ({
+    id: r.id,
+    text: r.text,
+    complianceRate: getComplianceRate(r),
+    opportunities: r.opportunities,
+  }));
+
+  const pruned: string[] = [];
+  if (!dryRun) {
+    for (const r of targets) {
+      const result = db.pruneRule(r.id);
+      if (result) pruned.push(r.id);
+    }
+  }
+
+  return { dryRun, candidates, pruned };
 }
