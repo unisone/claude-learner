@@ -1,14 +1,28 @@
 {
-  "hooks": [
-    {
-      "event": "UserPromptSubmit",
-      "command": "node \"$(dirname \"$0\")/detect-correction.js\"",
-      "description": "Detects correction patterns in user prompts and logs them for rule extraction"
-    },
-    {
-      "event": "Stop",
-      "command": "node \"$(dirname \"$0\")/notify-pending.js\"",
-      "description": "Reminds about pending rules when Claude finishes a turn"
-    }
-  ]
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/detect-correction.js\"",
+            "timeout": 5,
+            "description": "Detects correction patterns in user prompts and logs them for rule extraction"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/notify-pending.js\"",
+            "timeout": 5,
+            "description": "Reminds about pending rules when Claude finishes a turn"
+          }
+        ]
+      }
+    ]
+  }
 }

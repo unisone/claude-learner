@@ -1,5 +1,4 @@
 ---
-name: learner:rules
 description: List all learning rules (active, pending, rejected)
 ---
 
@@ -27,3 +26,4 @@ Present the rules in a clear format showing:
 - The pattern that triggered it
 - The rule content
 - Effectiveness score if available
+

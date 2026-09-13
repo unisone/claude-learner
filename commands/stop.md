@@ -1,5 +1,4 @@
 ---
-name: learner:stop
 description: Stop the learning daemon
 ---
 
@@ -12,3 +11,4 @@ claude-learner stop
 ```
 
 Confirm the daemon has stopped.
+

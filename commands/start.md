@@ -1,5 +1,4 @@
 ---
-name: learner:start
 description: Start the learning daemon
 ---
 
@@ -18,3 +17,4 @@ The daemon will:
 4. Track rule effectiveness
 
 Confirm the daemon started successfully and show the status.
+

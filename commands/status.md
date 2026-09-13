@@ -1,5 +1,4 @@
 ---
-name: learner:status
 description: Show claude-learner daemon and rule status
 ---
 
@@ -16,3 +15,4 @@ Then report:
 2. Number of active rules
 3. Number of pending rules awaiting approval
 4. Any recent learning activity
+
