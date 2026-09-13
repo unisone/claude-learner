@@ -124,6 +124,7 @@ When integrated with Claude Code, these tools are available:
 | `get_pending_rules` | View proposed rules |
 | `approve_rule` / `reject_rule` | Manage rules |
 | `sync_to_claude_md` | Write rules into CLAUDE.md |
+| `prune_rules` | Prune low-compliance rules (dry-run by default) |
 
 Claude Code automatically calls these to learn and improve.
 
@@ -170,7 +171,7 @@ Claude Code automatically calls these to learn and improve.
 ```
 ┌─────────────────┐     ┌──────────────┐     ┌─────────────┐
 │  Claude Code    │────▶│  MCP Server  │────▶│   SQLite    │
-│  (your work)    │     │  (7 tools)   │     │  (storage)  │
+│  (your work)    │     │  (8 tools)   │     │  (storage)  │
 └─────────────────┘     └──────────────┘     └─────────────┘
          │                                          ▲
          ▼                                          │
