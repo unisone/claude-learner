@@ -1,6 +1,9 @@
 ---
 name: learning
 description: Self-improving agent patterns. Use when detecting corrections, proposing rules, or managing learned behaviors.
+license: MIT
+metadata:
+  author: unisone
 ---
 
 # Claude Learner - Self-Improvement Skill
@@ -62,3 +65,4 @@ User: "Don't use rm, use trash instead"
 
 3. Rule goes to pending → user approves → permanently active
 ```
+
