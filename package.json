@@ -64,7 +64,7 @@
     "zod": "^4.0.0"
   },
   "optionalDependencies": {
-    "openai": "^4.77.0"
+    "openai": "^7.48.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.3.1",
